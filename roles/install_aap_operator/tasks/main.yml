@@ -1,0 +1,78 @@
+---
+- name: Set derived variables
+  ansible.builtin.set_fact:
+    _aap_namespace: "{{ aap_namespace | default('aap' ~ (aap_version | replace('.', ''))) }}"
+    _aap_operator_channel: "{{ aap_operator_channel | default('stable-' ~ aap_version) }}"
+
+- name: Display installation parameters
+  ansible.builtin.debug:
+    msg:
+      - "Installing AAP Operator version {{ aap_version }}"
+      - "  Namespace: {{ _aap_namespace }}"
+      - "  Channel: {{ _aap_operator_channel }}"
+      - "  Source: {{ aap_operator_source }}"
+
+- name: Create namespace for AAP
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ _aap_namespace }}"
+
+- name: Create OperatorGroup for AAP
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: operators.coreos.com/v1
+      kind: OperatorGroup
+      metadata:
+        name: aap-operator-group
+        namespace: "{{ _aap_namespace }}"
+      spec:
+        targetNamespaces:
+          - "{{ _aap_namespace }}"
+
+- name: Create Subscription for AAP Operator
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: Subscription
+      metadata:
+        name: "{{ aap_operator_package }}"
+        namespace: "{{ _aap_namespace }}"
+      spec:
+        channel: "{{ _aap_operator_channel }}"
+        installPlanApproval: "{{ aap_operator_install_plan_approval }}"
+        name: "{{ aap_operator_package }}"
+        source: "{{ aap_operator_source }}"
+        sourceNamespace: "{{ aap_operator_source_namespace }}"
+
+- name: Wait for AAP Operator CSV to be ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ _aap_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ aap_operator_package }}.{{ _aap_namespace }}"
+  register: csv_status
+  until:
+    - csv_status.resources | length > 0
+    - csv_status.resources[0].status.phase is defined
+    - csv_status.resources[0].status.phase == "Succeeded"
+  retries: 30
+  delay: 10
+
+- name: Display installation success
+  ansible.builtin.debug:
+    msg:
+      - "AAP Operator installed successfully"
+      - "  Namespace: {{ _aap_namespace }}"
+      - "  CSV: {{ csv_status.resources[0].metadata.name }}"
+      - "  Phase: {{ csv_status.resources[0].status.phase }}"

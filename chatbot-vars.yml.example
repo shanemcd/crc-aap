@@ -1,0 +1,19 @@
+---
+# Chatbot configuration for OpenAI
+
+# Namespace where AAP is deployed (defaults to aap26 for version 2.6)
+aap_namespace: aap26
+
+# Name of the AAP custom resource
+aap_cr_name: myaap
+
+# Name for the chatbot configuration secret
+secret_name: chatbot-configuration-secret
+
+# OpenAI configuration
+chatbot_model: gpt-4o
+chatbot_url: https://api.openai.com/v1
+chatbot_token: sk-your-openai-api-key-here
+
+# LLM provider type (required): rhoai_vllm, openai, or azure_openai
+chatbot_llm_provider_type: openai

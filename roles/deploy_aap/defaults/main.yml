@@ -1,0 +1,34 @@
+---
+# AAP version - used to derive namespace if not specified
+aap_version: "2.6"
+
+# Namespace - defaults to aap{{ aap_version | replace('.', '') }} (e.g., aap26)
+# aap_namespace: aap26
+
+# AAP Custom Resource name
+aap_cr_name: myaap
+
+# Component toggles
+aap_controller_disabled: false
+aap_eda_disabled: false
+aap_hub_disabled: false
+aap_lightspeed_disabled: true
+
+# Hub storage configuration
+aap_hub_file_storage_access_mode: ReadWriteOnce
+aap_hub_file_storage_size: 20Gi
+aap_hub_file_storage_class: ""
+aap_hub_storage_type: File
+aap_hub_content_replicas: 1
+
+# Lightspeed configuration
+aap_lightspeed_chatbot_config_secret_name: chatbot-configuration-secret
+# Set to create CA bundle for self-signed certs (e.g., internal vLLM)
+aap_lightspeed_ca_bundle_secret_name: ""
+
+# Resource requirements - empty dict means no resource requests/limits (dev mode)
+# Set to null to use operator defaults
+aap_resource_requirements: {}
+
+# Logging
+aap_no_log: false

@@ -1,0 +1,19 @@
+---
+# AAP version to install (e.g., "2.6", "2.5")
+aap_version: "2.6"
+
+# Namespace - defaults to aap{{ aap_version | replace('.', '') }} (e.g., aap26)
+# aap_namespace: aap26
+
+# Operator channel - defaults to stable-{{ aap_version }} (e.g., stable-2.6)
+# aap_operator_channel: stable-2.6
+
+# Catalog source configuration
+aap_operator_source: redhat-operators
+aap_operator_source_namespace: openshift-marketplace
+
+# Operator package name
+aap_operator_package: ansible-automation-platform-operator
+
+# Install plan approval mode
+aap_operator_install_plan_approval: Automatic
