@@ -13,56 +13,92 @@ Deploy Ansible Automation Platform (AAP) on OpenShift Local (formerly CRC).
 crc start --cpus=12 --memory=40000 -d 100
 ```
 
-## Quick Start
+## Deployment
+
+### Basic Deployment
 
 ```bash
-# Deploy AAP (installs operator automatically)
 ansible-playbook deploy-aap.yml
-
-# With Lightspeed chatbot enabled:
-ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
 ```
 
-### Optional: Configure Lightspeed Chatbot
+This installs the AAP operator and deploys AAP with Controller, EDA, and Hub enabled. Lightspeed is disabled by default.
+
+### Deployment with Lightspeed
+
+To deploy with Lightspeed chatbot, you must create the chatbot secret **before** running the deploy playbook.
+
+**Step 1: Configure chatbot credentials**
 
 ```bash
 cp chatbot-vars.yml.example chatbot-vars.yml
-# Edit chatbot-vars.yml with your OpenAI API key
-ansible-playbook create-chatbot-secret.yml -e @chatbot-vars.yml
-ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
+# Edit chatbot-vars.yml with your API credentials
 ```
 
-## Supported Versions
+**Step 2: Create the chatbot secret**
 
-- AAP 2.6 (default)
-- AAP 2.5
-
-To deploy a specific version:
 ```bash
-ansible-playbook install-operator.yml -e aap_version=2.5
-ansible-playbook deploy-aap.yml -e aap_version=2.5
+ansible-playbook create-chatbot-secret.yml -e @chatbot-vars.yml
+```
+
+**Step 3: Deploy AAP with Lightspeed enabled**
+
+```bash
+ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
 ```
 
 ## Access
 
 After deployment, access AAP at:
+
 ```
 https://myaap-aap<version>.apps-crc.testing
 ```
 
-Default admin credentials:
+Retrieve the admin password:
+
 ```bash
 kubectl get secret myaap-admin-password -n aap<version> -o jsonpath='{.data.password}' | base64 -d
 ```
 
+## Supported Versions
+
+| Version | Namespace | Default |
+|---------|-----------|---------|
+| AAP 2.6 | aap26     | Yes     |
+| AAP 2.5 | aap25     | No      |
+
+To deploy a specific version:
+
+```bash
+ansible-playbook deploy-aap.yml -e aap_version=2.5
+```
+
 ## Components
 
-| Component | Default |
-|-----------|---------|
-| Controller | Enabled |
-| EDA | Enabled |
-| Hub | Enabled |
+| Component  | Default  |
+|------------|----------|
+| Controller | Enabled  |
+| EDA        | Enabled  |
+| Hub        | Enabled  |
 | Lightspeed | Disabled |
+
+Disable components as needed:
+
+```bash
+ansible-playbook deploy-aap.yml \
+  -e aap_hub_disabled=true \
+  -e aap_eda_disabled=true
+```
+
+## Customization
+
+Use a custom kubeconfig:
+
+```bash
+ansible-playbook deploy-aap.yml -e kubeconfig=/path/to/kubeconfig
+```
+
+See `roles/*/defaults/main.yml` for all available options.
 
 ## Clean Redeployment
 
@@ -84,30 +120,11 @@ kubectl get secrets -n aap26 -o name | \
 ansible-playbook deploy-aap.yml
 ```
 
-## Customization
-
-Override defaults via extra vars:
-
-```bash
-ansible-playbook deploy-aap.yml \
-  -e aap_hub_disabled=true \
-  -e aap_eda_disabled=true \
-  -e aap_lightspeed_disabled=false
-```
-
-To use a custom kubeconfig:
-
-```bash
-ansible-playbook deploy-aap.yml -e kubeconfig=/path/to/kubeconfig
-```
-
-See `roles/*/defaults/main.yml` for all options.
-
 ## Known Issues
 
 ### Lightspeed Chatbot 403 Error (AAP 2.6)
 
-The Lightspeed chatbot returns a 403 Forbidden error due to CSRF origin validation. This affects OCP deployments in AAP 2.6.
+The Lightspeed chatbot returns a 403 Forbidden error due to CSRF origin validation.
 
 **Workaround:** Set `CSRF_TRUSTED_ORIGINS` via `aap_lightspeed_extra_settings`:
 
