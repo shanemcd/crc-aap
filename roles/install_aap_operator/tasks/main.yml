@@ -14,7 +14,7 @@
 
 - name: Create namespace for AAP
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     state: present
     definition:
       apiVersion: v1
@@ -24,7 +24,7 @@
 
 - name: Create OperatorGroup for AAP
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     state: present
     definition:
       apiVersion: operators.coreos.com/v1
@@ -38,7 +38,7 @@
 
 - name: Create Subscription for AAP Operator
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     state: present
     definition:
       apiVersion: operators.coreos.com/v1alpha1
@@ -55,7 +55,7 @@
 
 - name: Wait for AAP Operator CSV to be ready
   kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     api_version: operators.coreos.com/v1alpha1
     kind: ClusterServiceVersion
     namespace: "{{ _aap_namespace }}"

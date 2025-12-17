@@ -95,6 +95,12 @@ ansible-playbook deploy-aap.yml \
   -e aap_lightspeed_disabled=false
 ```
 
+To use a custom kubeconfig:
+
+```bash
+ansible-playbook deploy-aap.yml -e kubeconfig=/path/to/kubeconfig
+```
+
 See `roles/*/defaults/main.yml` for all options.
 
 ## Known Issues

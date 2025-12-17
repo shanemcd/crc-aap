@@ -17,7 +17,7 @@
 - name: Verify chatbot configuration secret exists
   when: not aap_lightspeed_disabled
   kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     api_version: v1
     kind: Secret
     name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
@@ -30,7 +30,7 @@
     - not aap_lightspeed_disabled
     - aap_lightspeed_ca_bundle_secret_name | default('') | length > 0
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     state: present
     definition:
       apiVersion: v1
@@ -45,7 +45,7 @@
 
 - name: Deploy AnsibleAutomationPlatform CR
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig }}"
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
     state: present
     definition:
       apiVersion: aap.ansible.com/v1alpha1

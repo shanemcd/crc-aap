@@ -2,12 +2,6 @@
 - name: Deploy Ansible Automation Platform
   hosts: localhost
   gather_facts: false
-  pre_tasks:
-    - name: Ensure kubeconfig is defined
-      ansible.builtin.assert:
-        that:
-          - kubeconfig is defined
-        fail_msg: "Required variable 'kubeconfig' is missing."
   roles:
     - install_aap_operator
     - deploy_aap
