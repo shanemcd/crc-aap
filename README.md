@@ -34,13 +34,21 @@ cp chatbot-vars.yml.example chatbot-vars.yml
 # Edit chatbot-vars.yml with your API credentials
 ```
 
-**Step 2: Create the chatbot secret**
+**Step 2: Test your credentials (optional)**
+
+```bash
+ansible-playbook test-chatbot-secret.yml -e @chatbot-vars.yml
+```
+
+This makes a test API call to verify your credentials work before deploying.
+
+**Step 3: Create the chatbot secret**
 
 ```bash
 ansible-playbook create-chatbot-secret.yml -e @chatbot-vars.yml
 ```
 
-**Step 3: Deploy AAP with Lightspeed enabled**
+**Step 4: Deploy AAP with Lightspeed enabled**
 
 ```bash
 ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
