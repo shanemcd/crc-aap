@@ -96,3 +96,25 @@ ansible-playbook deploy-aap.yml \
 ```
 
 See `roles/*/defaults/main.yml` for all options.
+
+## Known Issues
+
+### Lightspeed Chatbot 403 Error (AAP 2.6)
+
+The Lightspeed chatbot returns a 403 Forbidden error due to CSRF origin validation. This affects OCP deployments in AAP 2.6.
+
+**Workaround:** Set `CSRF_TRUSTED_ORIGINS` via `aap_lightspeed_extra_settings`:
+
+```bash
+ansible-playbook deploy-aap.yml \
+  -e aap_lightspeed_disabled=false \
+  -e '{"aap_lightspeed_extra_settings": [{"setting": "CSRF_TRUSTED_ORIGINS", "value": "https://myaap-aap26.apps-crc.testing"}]}'
+```
+
+Or in a vars file:
+
+```yaml
+aap_lightspeed_extra_settings:
+  - setting: CSRF_TRUSTED_ORIGINS
+    value: "https://myaap-aap26.apps-crc.testing"
+```

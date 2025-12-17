@@ -102,6 +102,7 @@
           disabled: "{{ aap_lightspeed_disabled | bool }}"
           chatbot_config_secret_name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
           bundle_cacert_secret: "{{ aap_lightspeed_ca_bundle_secret_name | default(omit, true) }}"
+          extra_settings: "{{ aap_lightspeed_extra_settings if aap_lightspeed_extra_settings | length > 0 else omit }}"
         no_log: "{{ aap_no_log }}"
 
 - name: Display deployment information

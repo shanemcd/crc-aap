@@ -25,6 +25,8 @@ aap_hub_content_replicas: 1
 aap_lightspeed_chatbot_config_secret_name: chatbot-configuration-secret
 # Set to create CA bundle for self-signed certs (e.g., internal vLLM)
 aap_lightspeed_ca_bundle_secret_name: ""
+# Extra settings for lightspeed (list of {setting, value} dicts)
+aap_lightspeed_extra_settings: []
 
 # Resource requirements - empty dict means no resource requests/limits (dev mode)
 # Set to null to use operator defaults
