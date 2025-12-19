@@ -47,4 +47,5 @@ For detailed information, see:
 
 - @docs/lightspeed.md - Lightspeed chatbot setup and LLM provider configuration
 - @docs/image-customization.md - Operator and application image customization
+- @docs/resource-requirements.md - Per-component resource requirements
 - @images.yml.example - Template for image override variables
