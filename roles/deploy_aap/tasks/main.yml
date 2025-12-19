@@ -14,20 +14,55 @@
       - "  Hub: {{ 'disabled' if aap_hub_disabled else 'enabled' }}"
       - "  Lightspeed: {{ 'disabled' if aap_lightspeed_disabled else 'enabled' }}"
 
-- name: Verify chatbot configuration secret exists
-  when: not aap_lightspeed_disabled
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig | default(omit) }}"
-    api_version: v1
-    kind: Secret
-    name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
-    namespace: "{{ _aap_namespace }}"
-  register: chatbot_secret
-  failed_when: chatbot_secret.resources | length == 0
+- name: Handle chatbot configuration
+  when: not aap_lightspeed_disabled | bool
+  block:
+    - name: Check if chatbot secret exists
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: v1
+        kind: Secret
+        name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
+        namespace: "{{ _aap_namespace }}"
+      register: chatbot_secret
+
+    - name: Validate chatbot provider variables
+      when: (chatbot_secret.resources | length == 0) | bool
+      ansible.builtin.assert:
+        that:
+          - chatbot_llm_provider_type is defined
+          - chatbot_llm_provider_url is defined
+          - chatbot_llm_provider_model is defined
+          - chatbot_llm_provider_credentials is defined
+        fail_msg: |
+          Lightspeed is enabled but chatbot secret '{{ aap_lightspeed_chatbot_config_secret_name }}' not found.
+          Either create the secret first, or provide these variables:
+            -e chatbot_llm_provider_type=openai
+            -e chatbot_llm_provider_url=https://api.openai.com/v1
+            -e chatbot_llm_provider_model=gpt-4
+            -e chatbot_llm_provider_credentials=sk-...
+
+    - name: Create chatbot configuration secret
+      when: (chatbot_secret.resources | length == 0) | bool
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
+            namespace: "{{ _aap_namespace }}"
+          type: Opaque
+          stringData:
+            chatbot_llm_provider_type: "{{ chatbot_llm_provider_type }}"
+            chatbot_url: "{{ chatbot_llm_provider_url }}"
+            chatbot_model: "{{ chatbot_llm_provider_model }}"
+            chatbot_token: "{{ chatbot_llm_provider_credentials }}"
 
 - name: Create CA bundle secret for Lightspeed chatbot
   when:
-    - not aap_lightspeed_disabled
+    - not aap_lightspeed_disabled | bool
     - aap_lightspeed_ca_bundle_secret_name | default('') | length > 0
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig | default(omit) }}"
@@ -43,6 +78,100 @@
         bundle-ca.crt: |
           {{ lookup('kubernetes.core.k8s', kind='ConfigMap', namespace=_aap_namespace, resource_name='openshift-service-ca.crt', kubeconfig=kubeconfig)['data']['service-ca.crt'] }}
 
+- name: Build list of application image overrides
+  ansible.builtin.set_fact:
+    _app_overrides: "{{ _app_image_mappings | selectattr('var', 'ne', '') | list }}"
+
+- name: Push application images to internal registry
+  when: _app_overrides | length > 0
+  block:
+    - name: Display application image overrides
+      ansible.builtin.debug:
+        msg: "Pushing application images: {{ _app_overrides | map(attribute='name') | list }}"
+
+    - name: Check if images exist locally
+      loop: "{{ _app_overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      containers.podman.podman_image_info:
+        name: "{{ item.var }}"
+      register: local_app_images
+
+    - name: Pull images that don't exist locally
+      loop: "{{ local_app_images.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.images | length == 0
+      containers.podman.podman_image:
+        name: "{{ item.item.var }}"
+        state: present
+
+    - name: Get OpenShift token for registry auth
+      ansible.builtin.command: oc whoami -t
+      register: oc_token
+      changed_when: false
+
+    - name: Push images to internal registry
+      loop: "{{ _app_overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      containers.podman.podman_image:
+        name: "{{ item.var }}"
+        push: true
+        push_args:
+          dest: "{{ _external_registry }}/{{ _aap_namespace }}/{{ item.registry_name }}:override"
+        username: unused
+        password: "{{ oc_token.stdout }}"
+        validate_certs: false
+
+    - name: Set internal gateway image references
+      ansible.builtin.set_fact:
+        _gateway_image: "{{ _internal_registry }}/{{ _aap_namespace }}/gateway"
+        _gateway_image_version: override
+      when: gateway_image is defined
+
+    - name: Set internal controller image references
+      ansible.builtin.set_fact:
+        _controller_image: "{{ _internal_registry }}/{{ _aap_namespace }}/controller"
+        _controller_image_version: override
+      when: controller_image is defined
+
+    - name: Set internal hub image references
+      ansible.builtin.set_fact:
+        _hub_image: "{{ _internal_registry }}/{{ _aap_namespace }}/hub"
+        _hub_image_version: override
+      when: hub_image is defined
+
+    - name: Set internal hub web image references
+      ansible.builtin.set_fact:
+        _hub_web_image: "{{ _internal_registry }}/{{ _aap_namespace }}/hub-web"
+        _hub_web_image_version: override
+      when: hub_web_image is defined
+
+    - name: Set internal eda image references
+      ansible.builtin.set_fact:
+        _eda_image: "{{ _internal_registry }}/{{ _aap_namespace }}/eda"
+        _eda_image_version: override
+      when: eda_image is defined
+
+    - name: Set internal eda web image references
+      ansible.builtin.set_fact:
+        _eda_web_image: "{{ _internal_registry }}/{{ _aap_namespace }}/eda-web"
+        _eda_web_image_version: override
+      when: eda_web_image is defined
+
+    - name: Set internal lightspeed image references
+      ansible.builtin.set_fact:
+        _lightspeed_image: "{{ _internal_registry }}/{{ _aap_namespace }}/lightspeed"
+        _lightspeed_image_version: override
+      when: lightspeed_image is defined
+
+    - name: Set internal chatbot image reference
+      ansible.builtin.set_fact:
+        _chatbot_image: "{{ _internal_registry }}/{{ _aap_namespace }}/lightspeed-chatbot"
+        _chatbot_image_version: override
+      when: chatbot_image is defined
+
 - name: Deploy AnsibleAutomationPlatform CR
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig | default(omit) }}"
@@ -54,8 +183,12 @@
         name: "{{ aap_cr_name }}"
         namespace: "{{ _aap_namespace }}"
       spec:
+        image: "{{ _gateway_image | default(omit) }}"
+        image_version: "{{ _gateway_image_version | default(omit) }}"
         controller:
           disabled: "{{ aap_controller_disabled | bool }}"
+          image: "{{ _controller_image | default(omit) }}"
+          image_version: "{{ _controller_image_version | default(omit) }}"
           web_resource_requirements: "{{ aap_resource_requirements }}"
           task_resource_requirements: "{{ aap_resource_requirements }}"
           ee_resource_requirements: "{{ aap_resource_requirements }}"
@@ -65,6 +198,10 @@
           init_container_resource_requirements: "{{ aap_resource_requirements }}"
         eda:
           disabled: "{{ aap_eda_disabled | bool }}"
+          image: "{{ _eda_image | default(omit) }}"
+          image_version: "{{ _eda_image_version | default(omit) }}"
+          image_web: "{{ _eda_web_image | default(omit) }}"
+          image_web_version: "{{ _eda_web_image_version | default(omit) }}"
           activation_worker:
             resource_requirements: "{{ aap_resource_requirements }}"
           api:
@@ -83,6 +220,10 @@
             resource_requirements: "{{ aap_resource_requirements }}"
         hub:
           disabled: "{{ aap_hub_disabled | bool }}"
+          image: "{{ _hub_image | default(omit) }}"
+          image_version: "{{ _hub_image_version | default(omit) }}"
+          image_web: "{{ _hub_web_image | default(omit) }}"
+          image_web_version: "{{ _hub_web_image_version | default(omit) }}"
           content:
             replicas: "{{ aap_hub_content_replicas }}"
             resource_requirements: "{{ aap_resource_requirements }}"
@@ -100,6 +241,10 @@
             resource_requirements: "{{ aap_resource_requirements }}"
         lightspeed:
           disabled: "{{ aap_lightspeed_disabled | bool }}"
+          image: "{{ _lightspeed_image | default(omit) }}"
+          image_version: "{{ _lightspeed_image_version | default(omit) }}"
+          chatbot_image: "{{ _chatbot_image | default(omit) }}"
+          chatbot_image_version: "{{ _chatbot_image_version | default(omit) }}"
           chatbot_config_secret_name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
           bundle_cacert_secret: "{{ aap_lightspeed_ca_bundle_secret_name | default(omit, true) }}"
           extra_settings: "{{ aap_lightspeed_extra_settings if aap_lightspeed_extra_settings | length > 0 else omit }}"
