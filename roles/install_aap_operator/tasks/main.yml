@@ -53,8 +53,20 @@
         source: "{{ aap_operator_source }}"
         sourceNamespace: "{{ aap_operator_source_namespace }}"
 
+- name: Check if CSV already exists and is ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ _aap_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ aap_operator_package }}.{{ _aap_namespace }}"
+  register: existing_csv
+
 - name: Approve InstallPlan for Manual approval mode
-  when: aap_operator_install_plan_approval == "Manual"
+  when:
+    - aap_operator_install_plan_approval == "Manual"
+    - existing_csv.resources | length == 0 or existing_csv.resources[0].status.phase | default('') != "Succeeded"
   block:
     - name: Wait for InstallPlan to be created
       kubernetes.core.k8s_info:
