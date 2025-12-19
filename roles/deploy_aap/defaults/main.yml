@@ -80,9 +80,35 @@ _app_image_mappings:
     var: "{{ chatbot_image | default('') }}"
     registry_name: lightspeed-chatbot
 
-# Resource requirements - empty dict means no resource requests/limits (dev mode)
+# Resource requirements - empty dict means no limits (dev mode)
 # Set to null to use operator defaults
-aap_resource_requirements: {}
+
+# Controller
+aap_controller_web_resource_requirements: {}
+aap_controller_task_resource_requirements: {}
+aap_controller_ee_resource_requirements: {}
+aap_controller_postgres_resource_requirements: {}
+aap_controller_redis_resource_requirements: {}
+aap_controller_rsyslog_resource_requirements: {}
+aap_controller_init_container_resource_requirements: {}
+
+# EDA
+aap_eda_api_resource_requirements: {}
+aap_eda_worker_resource_requirements: {}
+aap_eda_activation_worker_resource_requirements: {}
+aap_eda_scheduler_resource_requirements: {}
+aap_eda_event_stream_resource_requirements: {}
+aap_eda_ui_resource_requirements: {}
+aap_eda_redis_resource_requirements: {}
+aap_eda_postgres_resource_requirements: {}
+
+# Hub
+aap_hub_api_resource_requirements: {}
+aap_hub_content_resource_requirements: {}
+aap_hub_worker_resource_requirements: {}
+aap_hub_web_resource_requirements: {}
+aap_hub_postgres_resource_requirements: {}
+aap_hub_redis_resource_requirements: {}
 
 # Logging
 aap_no_log: false

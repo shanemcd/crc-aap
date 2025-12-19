@@ -189,13 +189,13 @@
           disabled: "{{ aap_controller_disabled | bool }}"
           image: "{{ _controller_image | default(omit) }}"
           image_version: "{{ _controller_image_version | default(omit) }}"
-          web_resource_requirements: "{{ aap_resource_requirements }}"
-          task_resource_requirements: "{{ aap_resource_requirements }}"
-          ee_resource_requirements: "{{ aap_resource_requirements }}"
-          postgres_resource_requirements: "{{ aap_resource_requirements }}"
-          redis_resource_requirements: "{{ aap_resource_requirements }}"
-          rsyslog_resource_requirements: "{{ aap_resource_requirements }}"
-          init_container_resource_requirements: "{{ aap_resource_requirements }}"
+          web_resource_requirements: "{{ aap_controller_web_resource_requirements }}"
+          task_resource_requirements: "{{ aap_controller_task_resource_requirements }}"
+          ee_resource_requirements: "{{ aap_controller_ee_resource_requirements }}"
+          postgres_resource_requirements: "{{ aap_controller_postgres_resource_requirements }}"
+          redis_resource_requirements: "{{ aap_controller_redis_resource_requirements }}"
+          rsyslog_resource_requirements: "{{ aap_controller_rsyslog_resource_requirements }}"
+          init_container_resource_requirements: "{{ aap_controller_init_container_resource_requirements }}"
         eda:
           disabled: "{{ aap_eda_disabled | bool }}"
           image: "{{ _eda_image | default(omit) }}"
@@ -203,21 +203,21 @@
           image_web: "{{ _eda_web_image | default(omit) }}"
           image_web_version: "{{ _eda_web_image_version | default(omit) }}"
           activation_worker:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_activation_worker_resource_requirements }}"
           api:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_api_resource_requirements }}"
           default_worker:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_worker_resource_requirements }}"
           event_stream:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_event_stream_resource_requirements }}"
           database:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_postgres_resource_requirements }}"
           redis:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_redis_resource_requirements }}"
           scheduler:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_scheduler_resource_requirements }}"
           ui:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_eda_ui_resource_requirements }}"
         hub:
           disabled: "{{ aap_hub_disabled | bool }}"
           image: "{{ _hub_image | default(omit) }}"
@@ -226,19 +226,19 @@
           image_web_version: "{{ _hub_web_image_version | default(omit) }}"
           content:
             replicas: "{{ aap_hub_content_replicas }}"
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_hub_content_resource_requirements }}"
           file_storage_access_mode: "{{ aap_hub_file_storage_access_mode }}"
           file_storage_size: "{{ aap_hub_file_storage_size }}"
           file_storage_storage_class: "{{ aap_hub_file_storage_class | default(omit, true) }}"
           storage_type: "{{ aap_hub_storage_type }}"
-          postgres_resource_requirements: "{{ aap_resource_requirements }}"
-          redis_resource_requirements: "{{ aap_resource_requirements }}"
+          postgres_resource_requirements: "{{ aap_hub_postgres_resource_requirements }}"
+          redis_resource_requirements: "{{ aap_hub_redis_resource_requirements }}"
           api:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_hub_api_resource_requirements }}"
           worker:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_hub_worker_resource_requirements }}"
           web:
-            resource_requirements: "{{ aap_resource_requirements }}"
+            resource_requirements: "{{ aap_hub_web_resource_requirements }}"
         lightspeed:
           disabled: "{{ aap_lightspeed_disabled | bool }}"
           image: "{{ _lightspeed_image | default(omit) }}"
