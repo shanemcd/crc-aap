@@ -1,0 +1,21 @@
+---
+# Mapping of operators to their deployment and container info
+_operator_mappings:
+  - name: gateway
+    deployment: aap-gateway-operator-controller-manager
+    container: manager
+  - name: controller
+    deployment: automation-controller-operator-controller-manager
+    container: automation-controller-manager
+  - name: hub
+    deployment: automation-hub-operator-controller-manager
+    container: automation-hub-operator
+  - name: eda
+    deployment: eda-server-operator-controller-manager
+    container: eda-manager
+  - name: lightspeed
+    deployment: ansible-lightspeed-operator-controller-manager
+    container: ansible-lightspeed-manager
+  - name: resource
+    deployment: resource-operator-controller-manager
+    container: platform-resource-manager

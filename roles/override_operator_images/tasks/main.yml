@@ -1,69 +1,22 @@
 ---
-- name: Override AAP operator images
-  hosts: localhost
-  gather_facts: false
-  vars:
-    aap_version: "2.6"
-    # Operator image overrides - set via -e or vars file
-    # aap_gateway_operator_image: ""
-    # aap_controller_operator_image: ""
-    # aap_hub_operator_image: ""
-    # aap_eda_operator_image: ""
-    # aap_lightspeed_operator_image: ""
-    # aap_resource_operator_image: ""
+- name: Build list of operator image overrides
+  ansible.builtin.set_fact:
+    _overrides: "{{ _operator_mappings | selectattr('var', 'ne', '') | list }}"
 
-    # Internal registry URLs
-    _internal_registry: "image-registry.openshift-image-registry.svc:5000"
-    _external_registry: "default-route-openshift-image-registry.apps-crc.testing"
+- name: Skip if no operator image overrides specified
+  when: _overrides | length == 0
+  ansible.builtin.debug:
+    msg: "No operator image overrides specified, skipping"
 
-    # Mapping of operators to their deployment and container info
-    _operator_mappings:
-      - name: gateway
-        var: "{{ aap_gateway_operator_image | default('') }}"
-        deployment: aap-gateway-operator-controller-manager
-        container: manager
-      - name: controller
-        var: "{{ aap_controller_operator_image | default('') }}"
-        deployment: automation-controller-operator-controller-manager
-        container: automation-controller-manager
-      - name: hub
-        var: "{{ aap_hub_operator_image | default('') }}"
-        deployment: automation-hub-operator-controller-manager
-        container: automation-hub-operator
-      - name: eda
-        var: "{{ aap_eda_operator_image | default('') }}"
-        deployment: eda-server-operator-controller-manager
-        container: eda-manager
-      - name: lightspeed
-        var: "{{ aap_lightspeed_operator_image | default('') }}"
-        deployment: ansible-lightspeed-operator-controller-manager
-        container: ansible-lightspeed-manager
-      - name: resource
-        var: "{{ aap_resource_operator_image | default('') }}"
-        deployment: resource-operator-controller-manager
-        container: platform-resource-manager
-
-  pre_tasks:
-    - name: Set namespace
-      ansible.builtin.set_fact:
-        _aap_namespace: "{{ aap_namespace | default('aap' ~ (aap_version | replace('.', ''))) }}"
-
-    - name: Build list of overrides to apply
-      ansible.builtin.set_fact:
-        _overrides: "{{ _operator_mappings | selectattr('var', 'ne', '') | list }}"
-
-    - name: Fail if no overrides specified
-      ansible.builtin.fail:
-        msg: "No operator image overrides specified. Use -e aap_<component>_operator_image=<image>"
-      when: _overrides | length == 0
-
-    - name: Display overrides
+- name: Apply operator image overrides
+  when: _overrides | length > 0
+  block:
+    - name: Display overrides to apply
       ansible.builtin.debug:
         msg:
-          - "Namespace: {{ _aap_namespace }}"
-          - "Overrides to apply: {{ _overrides | map(attribute='name') | list }}"
+          - "Applying operator image overrides:"
+          - "{{ _overrides | map(attribute='name') | list }}"
 
-  tasks:
     - name: Get current deployment info
       loop: "{{ _overrides }}"
       loop_control:
@@ -76,17 +29,20 @@
         namespace: "{{ _aap_namespace }}"
       register: deployment_info
 
-    - name: Build original images and ownerReferences data
+    - name: Initialize original data
       ansible.builtin.set_fact:
-        _original_data: >-
-          {{
-            _original_data | default({}) | combine({
-              item.item.name: {
-                'image': item.resources[0].spec.template.spec.containers | selectattr('name', 'eq', item.item.container) | map(attribute='image') | first,
-                'ownerReferences': item.resources[0].metadata.ownerReferences | default([])
-              }
-            })
-          }}
+        _original_data: {}
+
+    - name: Build original deployment data
+      vars:
+        _deploy: "{{ item.resources[0] }}"
+        _containers: "{{ _deploy.spec.template.spec.containers }}"
+        _entry:
+          image: "{{ (_containers | selectattr('name', 'eq', item.item.container) | first).image }}"
+          ownerReferences: "{{ _deploy.metadata.ownerReferences | default([]) }}"
+          imagePullSecrets: "{{ _deploy.spec.template.spec.imagePullSecrets | default([]) }}"
+      ansible.builtin.set_fact:
+        _original_data: "{{ _original_data | combine({item.item.name: _entry}) }}"
       loop: "{{ deployment_info.results }}"
       loop_control:
         label: "{{ item.item.name }}"
@@ -139,7 +95,6 @@
         username: unused
         password: "{{ oc_token.stdout }}"
         validate_certs: false
-      register: push_result
 
     - name: Grant image-puller role to operator ServiceAccounts
       loop: "{{ _overrides }}"
@@ -167,6 +122,7 @@
       loop: "{{ _overrides }}"
       loop_control:
         label: "{{ item.name }}"
+      when: _original_data[item.name].ownerReferences | length > 0
       kubernetes.core.k8s_json_patch:
         kubeconfig: "{{ kubeconfig | default(omit) }}"
         api_version: apps/v1
@@ -181,6 +137,7 @@
       loop: "{{ _overrides }}"
       loop_control:
         label: "{{ item.name }}"
+      when: _original_data[item.name].imagePullSecrets | length > 0
       kubernetes.core.k8s_json_patch:
         kubeconfig: "{{ kubeconfig | default(omit) }}"
         api_version: apps/v1
@@ -190,7 +147,6 @@
         patch:
           - op: remove
             path: /spec/template/spec/imagePullSecrets
-      ignore_errors: true
 
     - name: Patch deployment with internal registry image
       loop: "{{ _overrides }}"
@@ -230,10 +186,8 @@
       retries: 30
       delay: 5
 
-    - name: Display success
+    - name: Display operator override success
       ansible.builtin.debug:
         msg:
-          - "Operator image overrides applied successfully"
-          - "Images pushed to: {{ _external_registry }}/{{ _aap_namespace }}/<operator>-operator:override"
-          - ""
-          - "To revert: ansible-playbook reset-operator-images.yml"
+          - "Operator image overrides applied:"
+          - "{{ _overrides | map(attribute='name') | list }}"

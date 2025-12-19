@@ -4,4 +4,5 @@
   gather_facts: false
   roles:
     - install_aap_operator
+    - override_operator_images
     - deploy_aap

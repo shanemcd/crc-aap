@@ -1,0 +1,101 @@
+---
+- name: Get saved original data from ConfigMap
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig | default(omit) }}"
+    api_version: v1
+    kind: ConfigMap
+    name: operator-image-overrides
+    namespace: "{{ _aap_namespace }}"
+  register: configmap_info
+
+- name: Skip if no overrides ConfigMap found
+  when: configmap_info.resources | length == 0
+  ansible.builtin.debug:
+    msg: "No operator image overrides to reset"
+
+- name: Reset operator images to stock
+  when: configmap_info.resources | length > 0
+  block:
+    - name: Parse original data
+      ansible.builtin.set_fact:
+        _original_data: "{{ configmap_info.resources[0].data.overrides | from_json }}"
+
+    - name: Build list of operators to reset
+      ansible.builtin.set_fact:
+        _resets: "{{ _operator_mappings | selectattr('name', 'in', _original_data.keys() | list) | list }}"
+
+    - name: Display reset plan
+      ansible.builtin.debug:
+        msg:
+          - "Resetting operator images to stock:"
+          - "{{ _resets | map(attribute='name') | list }}"
+
+    - name: Patch deployment with original image
+      loop: "{{ _resets }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "{{ item.container }}"
+                    image: "{{ _original_data[item.name].image }}"
+        merge_type: strategic-merge
+
+    - name: Restore ownerReferences (re-attach to OLM)
+      loop: "{{ _resets }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: _original_data[item.name].ownerReferences | length > 0
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+        definition:
+          metadata:
+            ownerReferences: "{{ _original_data[item.name].ownerReferences }}"
+        merge_type: strategic-merge
+
+    - name: Wait for deployments to be ready
+      loop: "{{ _resets }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+      register: deploy_status
+      until:
+        - deploy_status.resources | length > 0
+        - deploy_status.resources[0].status.readyReplicas is defined
+        - deploy_status.resources[0].status.readyReplicas == deploy_status.resources[0].status.replicas
+      retries: 30
+      delay: 5
+
+    - name: Delete ConfigMap
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        name: operator-image-overrides
+        namespace: "{{ _aap_namespace }}"
+
+    - name: Display reset success
+      ansible.builtin.debug:
+        msg:
+          - "Operator images reset to stock"
+          - "Operators reset: {{ _resets | map(attribute='name') | list }}"

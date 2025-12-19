@@ -1,0 +1,39 @@
+---
+# Operator image overrides - set to override specific operators
+# aap_gateway_operator_image: ""
+# aap_controller_operator_image: ""
+# aap_hub_operator_image: ""
+# aap_eda_operator_image: ""
+# aap_lightspeed_operator_image: ""
+# aap_resource_operator_image: ""
+
+# Internal registry URLs (CRC defaults)
+_internal_registry: "image-registry.openshift-image-registry.svc:5000"
+_external_registry: "default-route-openshift-image-registry.apps-crc.testing"
+
+# Mapping of operators to their deployment and container info
+_operator_mappings:
+  - name: gateway
+    var: "{{ aap_gateway_operator_image | default('') }}"
+    deployment: aap-gateway-operator-controller-manager
+    container: manager
+  - name: controller
+    var: "{{ aap_controller_operator_image | default('') }}"
+    deployment: automation-controller-operator-controller-manager
+    container: automation-controller-manager
+  - name: hub
+    var: "{{ aap_hub_operator_image | default('') }}"
+    deployment: automation-hub-operator-controller-manager
+    container: automation-hub-operator
+  - name: eda
+    var: "{{ aap_eda_operator_image | default('') }}"
+    deployment: eda-server-operator-controller-manager
+    container: eda-manager
+  - name: lightspeed
+    var: "{{ aap_lightspeed_operator_image | default('') }}"
+    deployment: ansible-lightspeed-operator-controller-manager
+    container: ansible-lightspeed-manager
+  - name: resource
+    var: "{{ aap_resource_operator_image | default('') }}"
+    deployment: resource-operator-controller-manager
+    container: platform-resource-manager
