@@ -1,0 +1,239 @@
+---
+- name: Override AAP operator images
+  hosts: localhost
+  gather_facts: false
+  vars:
+    aap_version: "2.6"
+    # Operator image overrides - set via -e or vars file
+    # aap_gateway_operator_image: ""
+    # aap_controller_operator_image: ""
+    # aap_hub_operator_image: ""
+    # aap_eda_operator_image: ""
+    # aap_lightspeed_operator_image: ""
+    # aap_resource_operator_image: ""
+
+    # Internal registry URLs
+    _internal_registry: "image-registry.openshift-image-registry.svc:5000"
+    _external_registry: "default-route-openshift-image-registry.apps-crc.testing"
+
+    # Mapping of operators to their deployment and container info
+    _operator_mappings:
+      - name: gateway
+        var: "{{ aap_gateway_operator_image | default('') }}"
+        deployment: aap-gateway-operator-controller-manager
+        container: manager
+      - name: controller
+        var: "{{ aap_controller_operator_image | default('') }}"
+        deployment: automation-controller-operator-controller-manager
+        container: automation-controller-manager
+      - name: hub
+        var: "{{ aap_hub_operator_image | default('') }}"
+        deployment: automation-hub-operator-controller-manager
+        container: automation-hub-operator
+      - name: eda
+        var: "{{ aap_eda_operator_image | default('') }}"
+        deployment: eda-server-operator-controller-manager
+        container: eda-manager
+      - name: lightspeed
+        var: "{{ aap_lightspeed_operator_image | default('') }}"
+        deployment: ansible-lightspeed-operator-controller-manager
+        container: ansible-lightspeed-manager
+      - name: resource
+        var: "{{ aap_resource_operator_image | default('') }}"
+        deployment: resource-operator-controller-manager
+        container: platform-resource-manager
+
+  pre_tasks:
+    - name: Set namespace
+      ansible.builtin.set_fact:
+        _aap_namespace: "{{ aap_namespace | default('aap' ~ (aap_version | replace('.', ''))) }}"
+
+    - name: Build list of overrides to apply
+      ansible.builtin.set_fact:
+        _overrides: "{{ _operator_mappings | selectattr('var', 'ne', '') | list }}"
+
+    - name: Fail if no overrides specified
+      ansible.builtin.fail:
+        msg: "No operator image overrides specified. Use -e aap_<component>_operator_image=<image>"
+      when: _overrides | length == 0
+
+    - name: Display overrides
+      ansible.builtin.debug:
+        msg:
+          - "Namespace: {{ _aap_namespace }}"
+          - "Overrides to apply: {{ _overrides | map(attribute='name') | list }}"
+
+  tasks:
+    - name: Get current deployment info
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+      register: deployment_info
+
+    - name: Build original images and ownerReferences data
+      ansible.builtin.set_fact:
+        _original_data: >-
+          {{
+            _original_data | default({}) | combine({
+              item.item.name: {
+                'image': item.resources[0].spec.template.spec.containers | selectattr('name', 'eq', item.item.container) | map(attribute='image') | first,
+                'ownerReferences': item.resources[0].metadata.ownerReferences | default([])
+              }
+            })
+          }}
+      loop: "{{ deployment_info.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: Save original data to ConfigMap
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: operator-image-overrides
+            namespace: "{{ _aap_namespace }}"
+          data:
+            overrides: "{{ _original_data | to_json }}"
+
+    - name: Check if image exists locally
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      containers.podman.podman_image_info:
+        name: "{{ item.var }}"
+      register: local_images
+
+    - name: Pull images that don't exist locally
+      loop: "{{ local_images.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.images | length == 0
+      containers.podman.podman_image:
+        name: "{{ item.item.var }}"
+        state: present
+
+    - name: Get OpenShift token for registry auth
+      ansible.builtin.command:
+        cmd: oc whoami -t
+      register: oc_token
+      changed_when: false
+
+    - name: Push images to internal registry
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      containers.podman.podman_image:
+        name: "{{ item.var }}"
+        push: true
+        push_args:
+          dest: "{{ _external_registry }}/{{ _aap_namespace }}/{{ item.name }}-operator:override"
+        username: unused
+        password: "{{ oc_token.stdout }}"
+        validate_certs: false
+      register: push_result
+
+    - name: Grant image-puller role to operator ServiceAccounts
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: "{{ item.deployment }}-image-puller"
+            namespace: "{{ _aap_namespace }}"
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: system:image-puller
+          subjects:
+            - kind: ServiceAccount
+              name: "{{ item.deployment }}"
+              namespace: "{{ _aap_namespace }}"
+
+    - name: Remove ownerReferences from deployments (detach from OLM)
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s_json_patch:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+        patch:
+          - op: remove
+            path: /metadata/ownerReferences
+
+    - name: Remove imagePullSecrets from deployments
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s_json_patch:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+        patch:
+          - op: remove
+            path: /spec/template/spec/imagePullSecrets
+      ignore_errors: true
+
+    - name: Patch deployment with internal registry image
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "{{ item.container }}"
+                    image: "{{ _internal_registry }}/{{ _aap_namespace }}/{{ item.name }}-operator:override"
+        merge_type: strategic-merge
+
+    - name: Wait for deployments to be ready
+      loop: "{{ _overrides }}"
+      loop_control:
+        label: "{{ item.name }}"
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item.deployment }}"
+        namespace: "{{ _aap_namespace }}"
+      register: deploy_status
+      until:
+        - deploy_status.resources | length > 0
+        - deploy_status.resources[0].status.readyReplicas is defined
+        - deploy_status.resources[0].status.readyReplicas == deploy_status.resources[0].status.replicas
+      retries: 30
+      delay: 5
+
+    - name: Display success
+      ansible.builtin.debug:
+        msg:
+          - "Operator image overrides applied successfully"
+          - "Images pushed to: {{ _external_registry }}/{{ _aap_namespace }}/<operator>-operator:override"
+          - ""
+          - "To revert: ansible-playbook reset-operator-images.yml"
