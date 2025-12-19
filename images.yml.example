@@ -1,0 +1,29 @@
+---
+# Application image overrides
+# Copy to images.yml and uncomment the images you want to override
+
+# Gateway
+# gateway_image: quay.io/myuser/gateway:dev
+
+# Controller
+# controller_image: quay.io/myuser/controller:dev
+
+# Hub
+# hub_image: quay.io/myuser/hub:dev
+# hub_web_image: quay.io/myuser/hub-web:dev
+
+# EDA
+# eda_image: quay.io/myuser/eda-server:dev
+# eda_web_image: quay.io/myuser/eda-ui:dev
+
+# Lightspeed
+# lightspeed_image: quay.io/myuser/lightspeed:dev
+# chatbot_image: quay.io/myuser/lightspeed-chatbot:dev
+
+# Operator image overrides
+# aap_gateway_operator_image: quay.io/myuser/gateway-operator:dev
+# aap_controller_operator_image: quay.io/myuser/controller-operator:dev
+# aap_hub_operator_image: quay.io/myuser/hub-operator:dev
+# aap_eda_operator_image: quay.io/myuser/eda-operator:dev
+# aap_lightspeed_operator_image: quay.io/myuser/lightspeed-operator:dev
+# aap_resource_operator_image: quay.io/myuser/resource-operator:dev

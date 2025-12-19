@@ -66,7 +66,7 @@ ansible-playbook deploy-aap.yml -e kubeconfig=/path/to/kubeconfig
 ## Documentation
 
 - [Lightspeed Chatbot Setup](docs/lightspeed.md)
-- [Operator Image Customization](docs/operator-image-customization.md)
+- [Image Customization](docs/image-customization.md)
 
 ## Clean Redeployment
 

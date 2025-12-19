@@ -1,3 +1,4 @@
 # Vars files containing secrets
 chatbot-vars.yml
 deploy-aap-vars.yml
+images.yml
