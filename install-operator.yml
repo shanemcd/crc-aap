@@ -1,0 +1,6 @@
+---
+- name: Install AAP Operator
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - install_aap_operator
