@@ -4,20 +4,24 @@ Deploy AAP with Lightspeed chatbot enabled.
 
 ## Prerequisites
 
-You need API credentials for one of the supported LLM providers:
+API credentials for one of the supported LLM providers:
 - OpenAI
 - Azure OpenAI
 - Red Hat OpenShift AI vLLM
 
-## Setup
+## Quick Start
 
-### 1. Configure credentials
+Create `chatbot-vars.yml` with your provider settings and deploy:
 
 ```bash
-cp chatbot-vars.yml.example chatbot-vars.yml
+ansible-playbook deploy-aap.yml -e @chatbot-vars.yml -e aap_lightspeed_disabled=false
 ```
 
-Edit `chatbot-vars.yml` with your provider settings:
+The chatbot configuration secret is created automatically.
+
+## Provider Configuration
+
+Example `chatbot-vars.yml`:
 
 ```yaml
 # OpenAI
@@ -39,41 +43,19 @@ chatbot_llm_provider_credentials: your-token
 chatbot_llm_provider_model: your-model
 ```
 
-### 2. Test credentials (optional)
+## Test Credentials (Optional)
 
 ```bash
 ansible-playbook test-chatbot-secret.yml -e @chatbot-vars.yml
-```
-
-This makes a test API call to verify your credentials work.
-
-### 3. Create the chatbot secret
-
-```bash
-ansible-playbook create-chatbot-secret.yml -e @chatbot-vars.yml
-```
-
-### 4. Deploy AAP with Lightspeed
-
-```bash
-ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
 ```
 
 ## Known Issues
 
 ### 403 Forbidden Error (CSRF)
 
-The Lightspeed chatbot may return a 403 Forbidden error due to CSRF origin validation in AAP 2.6.
+The chatbot may return 403 due to CSRF origin validation.
 
-**Workaround:** Set `CSRF_TRUSTED_ORIGINS`:
-
-```bash
-ansible-playbook deploy-aap.yml \
-  -e aap_lightspeed_disabled=false \
-  -e '{"aap_lightspeed_extra_settings": [{"setting": "CSRF_TRUSTED_ORIGINS", "value": "https://myaap-aap26.apps-crc.testing"}]}'
-```
-
-Or in a vars file:
+**Workaround:** Add to your vars file:
 
 ```yaml
 aap_lightspeed_extra_settings:

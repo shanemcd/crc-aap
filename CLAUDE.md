@@ -4,77 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains Ansible playbooks and roles for deploying Ansible Automation Platform (AAP) on OpenShift Local (CRC). It uses the `kubernetes.core` collection to manage Kubernetes/OpenShift resources.
+Ansible playbooks and roles for deploying Ansible Automation Platform (AAP) on OpenShift Local (CRC). Uses `kubernetes.core` collection.
 
-## Commands
+## Quick Reference
 
-### Deploy AAP
 ```bash
+# Deploy AAP
 ansible-playbook deploy-aap.yml
-```
 
-### Deploy with specific version
-```bash
-ansible-playbook deploy-aap.yml -e aap_version=2.5
-```
+# Deploy with Lightspeed
+ansible-playbook deploy-aap.yml -e @chatbot-vars.yml -e aap_lightspeed_disabled=false
 
-### Deploy with Lightspeed enabled
-```bash
-# First create the chatbot secret
-ansible-playbook create-chatbot-secret.yml -e @chatbot-vars.yml
+# Deploy with custom images
+ansible-playbook deploy-aap.yml -e @images.yml
 
-# Then deploy with Lightspeed
-ansible-playbook deploy-aap.yml -e aap_lightspeed_disabled=false
-```
-
-### Test chatbot credentials
-```bash
-ansible-playbook test-chatbot-secret.yml -e @chatbot-vars.yml
+# Reset operator images to stock
+ansible-playbook reset-operator-images.yml
 ```
 
 ## Architecture
 
-The deployment uses Ansible roles executed in sequence:
+Roles executed in sequence by `deploy-aap.yml`:
 
-1. **install_aap_operator** - Installs the AAP operator via OLM (Operator Lifecycle Manager)
-   - Creates namespace (e.g., `aap26`)
-   - Creates OperatorGroup and Subscription
-   - Waits for ClusterServiceVersion to reach `Succeeded` phase
-
-2. **override_operator_images** - Conditionally overrides operator images
-   - Runs when any `aap_*_operator_image` variable is set
-   - Pushes images to internal OpenShift registry
-   - Detaches deployments from OLM and patches with custom image
-
-3. **deploy_aap** - Deploys the AnsibleAutomationPlatform custom resource
-   - Optionally verifies chatbot secret exists (when Lightspeed enabled)
-   - Handles chatbot image override when `chatbot_image` is set
-   - Creates the AAP CR with Controller, EDA, Hub, and Lightspeed components
-   - Resource requirements default to empty `{}` (no limits) for development use
-
-4. **reset_operator_images** - Resets operator images to stock (standalone playbook)
-   - Restores original images from saved ConfigMap
-   - Re-attaches deployments to OLM
+1. **install_aap_operator** - Installs AAP operator via OLM
+2. **override_operator_images** - Conditionally overrides operator images when `aap_*_operator_image` vars are set
+3. **deploy_aap** - Creates AAP CR, handles chatbot secret creation and app image overrides
 
 ## Key Variables
 
-All configurable via `-e` flag:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `aap_version` | `2.6` | AAP version (derives namespace and operator channel) |
-| `aap_namespace` | `aap26` | Target namespace (auto-derived from version) |
-| `aap_controller_disabled` | `false` | Disable Controller component |
-| `aap_eda_disabled` | `false` | Disable EDA component |
-| `aap_hub_disabled` | `false` | Disable Hub component |
-| `aap_lightspeed_disabled` | `true` | Disable Lightspeed (requires chatbot secret) |
-| `kubeconfig` | omit | Path to kubeconfig file |
-| `aap_*_operator_image` | - | Override operator image (gateway, controller, hub, eda, lightspeed, resource) |
-| `chatbot_image` | - | Override Lightspeed chatbot image |
+| `aap_version` | `2.6` | AAP version (derives namespace) |
+| `aap_namespace` | `aap26` | Target namespace |
+| `aap_*_disabled` | varies | Disable components (controller, eda, hub, lightspeed) |
+| `aap_*_operator_image` | - | Override operator images |
+| `gateway_image`, `controller_image`, etc. | - | Override application images |
+| `chatbot_llm_provider_*` | - | LLM provider config (auto-creates secret) |
 
-## Lightspeed Chatbot Providers
+## Documentation
 
-Supported `chatbot_llm_provider_type` values:
-- `openai` - OpenAI API
-- `azure_openai` - Azure OpenAI (uses `api-key` header)
-- `rhoai_vllm` - Red Hat OpenShift AI vLLM
+For detailed information, see:
+
+- @docs/lightspeed.md - Lightspeed chatbot setup and LLM provider configuration
+- @docs/image-customization.md - Operator and application image customization
+- @images.yml.example - Template for image override variables
