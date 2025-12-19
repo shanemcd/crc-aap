@@ -15,5 +15,5 @@ aap_operator_source_namespace: openshift-marketplace
 # Operator package name
 aap_operator_package: ansible-automation-platform-operator
 
-# Install plan approval mode
-aap_operator_install_plan_approval: Automatic
+# Install plan approval mode (Manual recommended for dev to prevent unexpected upgrades)
+aap_operator_install_plan_approval: Manual

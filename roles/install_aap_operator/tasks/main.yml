@@ -53,6 +53,37 @@
         source: "{{ aap_operator_source }}"
         sourceNamespace: "{{ aap_operator_source_namespace }}"
 
+- name: Approve InstallPlan for Manual approval mode
+  when: aap_operator_install_plan_approval == "Manual"
+  block:
+    - name: Wait for InstallPlan to be created
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ _aap_namespace }}"
+      register: install_plans
+      until:
+        - install_plans.resources | length > 0
+        - install_plans.resources | selectattr('spec.approved', 'eq', false) | list | length > 0
+      retries: 30
+      delay: 5
+
+    - name: Approve pending InstallPlan
+      loop: "{{ install_plans.resources | selectattr('spec.approved', 'eq', false) | list }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: patched
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        name: "{{ item.metadata.name }}"
+        namespace: "{{ _aap_namespace }}"
+        definition:
+          spec:
+            approved: true
+
 - name: Wait for AAP Operator CSV to be ready
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig | default(omit) }}"
