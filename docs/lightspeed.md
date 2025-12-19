@@ -69,6 +69,7 @@ aap_lightspeed_extra_settings:
 |----------|---------|-------------|
 | `aap_lightspeed_disabled` | `true` | Set to `false` to enable |
 | `aap_lightspeed_extra_settings` | `[]` | Additional Django settings |
+| `aap_lightspeed_ca_bundle_secret_name` | (empty) | Secret for CA bundle (self-signed certs) |
 | `chatbot_llm_provider_type` | - | `openai`, `azure_openai`, or `rhoai_vllm` |
 | `chatbot_llm_provider_url` | - | LLM API endpoint |
 | `chatbot_llm_provider_credentials` | - | API key or token |

@@ -69,21 +69,46 @@ The `reset-operator-images.yml` playbook reverses this process using the saved C
 
 ## Application Images
 
-Override application images (like the Lightspeed chatbot) by passing variables to the deploy playbook.
+Override application images by passing variables to the deploy playbook. Images are pushed to the internal registry and configured in the AAP CR.
 
-### Chatbot
+### Supported Variables
+
+| Variable | Component |
+|----------|-----------|
+| `gateway_image` | Gateway (top-level) |
+| `controller_image` | Controller |
+| `hub_image` | Hub API |
+| `hub_web_image` | Hub Web UI |
+| `eda_image` | EDA Server |
+| `eda_web_image` | EDA UI |
+| `lightspeed_image` | Lightspeed |
+| `chatbot_image` | Lightspeed Chatbot |
+
+### Usage
 
 ```bash
+# Single image
 ansible-playbook deploy-aap.yml \
-  -e aap_lightspeed_disabled=false \
-  -e chatbot_image=quay.io/myuser/lightspeed-chatbot:dev
+  -e controller_image=quay.io/myuser/controller:dev
+
+# Multiple images
+ansible-playbook deploy-aap.yml \
+  -e gateway_image=localhost/gateway:dev \
+  -e controller_image=localhost/controller:dev
+
+# Using a vars file (recommended)
+cp images.yml.example images.yml
+# Edit images.yml with your overrides
+ansible-playbook deploy-aap.yml -e @images.yml
 ```
 
-To reset, remove the override fields from the AAP CR:
+### Reset
+
+Remove the override fields from the AAP CR:
 
 ```bash
 kubectl patch aap myaap -n aap26 --type=json \
-  -p '[{"op":"remove","path":"/spec/lightspeed/chatbot_image"},{"op":"remove","path":"/spec/lightspeed/chatbot_image_version"}]'
+  -p '[{"op":"remove","path":"/spec/controller/image"},{"op":"remove","path":"/spec/controller/image_version"}]'
 ```
 
 ## Troubleshooting
