@@ -12,6 +12,13 @@ aap_version: "2.6"
 aap_operator_source: redhat-operators
 aap_operator_source_namespace: openshift-marketplace
 
+# Custom CatalogSource configuration
+# Set aap_custom_catalog_source_image to create a custom CatalogSource
+# aap_custom_catalog_source_image: ""  # Index image (e.g., registry.example.com/iib:12345@sha256:...)
+aap_custom_catalog_source_name: aap-custom-catalog
+aap_custom_catalog_source_display_name: Ansible Automation Platform (Custom)
+aap_custom_catalog_source_publisher: Custom
+
 # Operator package name
 aap_operator_package: ansible-automation-platform-operator
 

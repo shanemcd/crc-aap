@@ -9,7 +9,7 @@ Ansible playbooks and roles for deploying Ansible Automation Platform (AAP) on O
 ## Quick Reference
 
 ```bash
-# Deploy AAP
+# Deploy AAP (uses Red Hat Operators catalog)
 ansible-playbook deploy-aap.yml
 
 # Deploy with Lightspeed
@@ -36,6 +36,7 @@ Roles executed in sequence by `deploy-aap.yml`:
 |----------|---------|-------------|
 | `aap_version` | `2.6` | AAP version (derives namespace) |
 | `aap_namespace` | `aap26` | Target namespace |
+| `aap_custom_catalog_source_image` | - | Index image for custom CatalogSource |
 | `aap_*_disabled` | varies | Disable components (controller, eda, hub, lightspeed) |
 | `aap_*_operator_image` | - | Override operator images |
 | `gateway_image`, `controller_image`, etc. | - | Override application images |

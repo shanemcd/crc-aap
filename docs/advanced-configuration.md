@@ -14,13 +14,34 @@ Configure how the AAP operator is installed via OLM.
 | `aap_operator_package` | `ansible-automation-platform-operator` | Operator package name |
 | `aap_operator_install_plan_approval` | `Manual` | Install plan approval mode |
 
-### Example: Use a Custom Catalog
+### Example: Use an Existing Catalog
 
 ```bash
 ansible-playbook deploy-aap.yml \
   -e aap_operator_source=my-catalog \
   -e aap_operator_source_namespace=my-namespace
 ```
+
+### Example: Create a Custom CatalogSource from an Index Image
+
+If you have an index image (e.g., from a CI/CD pipeline or internal build), you can create a CatalogSource automatically:
+
+```bash
+ansible-playbook deploy-aap.yml \
+  -e aap_custom_catalog_source_image=registry.example.com/iib:12345@sha256:abc123...
+```
+
+The playbook will:
+1. Create a CatalogSource in the AAP namespace
+2. Wait for it to become ready
+3. Install the operator from that catalog
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `aap_custom_catalog_source_image` | (none) | Index image to use for custom CatalogSource |
+| `aap_custom_catalog_source_name` | `aap-custom-catalog` | Name of the CatalogSource |
+| `aap_custom_catalog_source_display_name` | `Ansible Automation Platform (Custom)` | Display name |
+| `aap_custom_catalog_source_publisher` | `Custom` | Publisher name |
 
 ## AAP Custom Resource
 

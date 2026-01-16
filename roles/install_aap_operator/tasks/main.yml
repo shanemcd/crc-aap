@@ -22,6 +22,53 @@
       metadata:
         name: "{{ _aap_namespace }}"
 
+- name: Create custom CatalogSource
+  when: aap_custom_catalog_source_image is defined and aap_custom_catalog_source_image | length > 0
+  block:
+    - name: Display custom CatalogSource configuration
+      ansible.builtin.debug:
+        msg:
+          - "Creating custom CatalogSource"
+          - "  Name: {{ aap_custom_catalog_source_name }}"
+          - "  Image: {{ aap_custom_catalog_source_image }}"
+
+    - name: Create CatalogSource resource
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: CatalogSource
+          metadata:
+            name: "{{ aap_custom_catalog_source_name }}"
+            namespace: openshift-marketplace
+          spec:
+            displayName: "{{ aap_custom_catalog_source_display_name }}"
+            image: "{{ aap_custom_catalog_source_image }}"
+            publisher: "{{ aap_custom_catalog_source_publisher }}"
+            sourceType: grpc
+            grpcPodConfig:
+              securityContextConfig: restricted
+
+    - name: Wait for CatalogSource to be ready
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig | default(omit) }}"
+        api_version: operators.coreos.com/v1alpha1
+        kind: CatalogSource
+        name: "{{ aap_custom_catalog_source_name }}"
+        namespace: openshift-marketplace
+      register: catalog_source_status
+      until:
+        - catalog_source_status.resources | length > 0
+        - catalog_source_status.resources[0].status.connectionState.lastObservedState | default('') == 'READY'
+      retries: 30
+      delay: 5
+
+    - name: Override operator source to use custom CatalogSource
+      ansible.builtin.set_fact:
+        aap_operator_source: "{{ aap_custom_catalog_source_name }}"
+        aap_operator_source_namespace: openshift-marketplace
+
 - name: Create OperatorGroup for AAP
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig | default(omit) }}"

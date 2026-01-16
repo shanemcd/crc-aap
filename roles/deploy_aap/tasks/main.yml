@@ -185,10 +185,12 @@
       spec:
         image: "{{ _gateway_image | default(omit) }}"
         image_version: "{{ _gateway_image_version | default(omit) }}"
+        image_pull_policy: "{{ 'Always' if gateway_image is defined else omit }}"
         controller:
           disabled: "{{ aap_controller_disabled | bool }}"
           image: "{{ _controller_image | default(omit) }}"
           image_version: "{{ _controller_image_version | default(omit) }}"
+          image_pull_policy: "{{ 'Always' if controller_image is defined else omit }}"
           web_resource_requirements: "{{ aap_controller_web_resource_requirements }}"
           task_resource_requirements: "{{ aap_controller_task_resource_requirements }}"
           ee_resource_requirements: "{{ aap_controller_ee_resource_requirements }}"
@@ -202,6 +204,7 @@
           image_version: "{{ _eda_image_version | default(omit) }}"
           image_web: "{{ _eda_web_image | default(omit) }}"
           image_web_version: "{{ _eda_web_image_version | default(omit) }}"
+          image_pull_policy: "{{ 'Always' if (eda_image is defined or eda_web_image is defined) else omit }}"
           activation_worker:
             resource_requirements: "{{ aap_eda_activation_worker_resource_requirements }}"
           api:
@@ -224,6 +227,7 @@
           image_version: "{{ _hub_image_version | default(omit) }}"
           image_web: "{{ _hub_web_image | default(omit) }}"
           image_web_version: "{{ _hub_web_image_version | default(omit) }}"
+          image_pull_policy: "{{ 'Always' if (hub_image is defined or hub_web_image is defined) else omit }}"
           content:
             replicas: "{{ aap_hub_content_replicas }}"
             resource_requirements: "{{ aap_hub_content_resource_requirements }}"
@@ -245,6 +249,7 @@
           image_version: "{{ _lightspeed_image_version | default(omit) }}"
           chatbot_image: "{{ _chatbot_image | default(omit) }}"
           chatbot_image_version: "{{ _chatbot_image_version | default(omit) }}"
+          image_pull_policy: "{{ 'Always' if (lightspeed_image is defined or chatbot_image is defined) else omit }}"
           chatbot_config_secret_name: "{{ aap_lightspeed_chatbot_config_secret_name }}"
           bundle_cacert_secret: "{{ aap_lightspeed_ca_bundle_secret_name | default(omit, true) }}"
           extra_settings: "{{ aap_lightspeed_extra_settings if aap_lightspeed_extra_settings | length > 0 else omit }}"
