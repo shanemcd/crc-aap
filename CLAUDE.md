@@ -20,6 +20,9 @@ ansible-playbook deploy-aap.yml -e @images.yml
 
 # Reset operator images to stock
 ansible-playbook reset-operator-images.yml
+
+# Login as kubeadmin
+eval $(crc console --credentials | awk -F"'" '/admin/ {print $2}')
 ```
 
 ## Architecture
