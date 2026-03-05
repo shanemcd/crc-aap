@@ -115,14 +115,22 @@
       loop: "{{ _app_overrides }}"
       loop_control:
         label: "{{ item.name }}"
-      containers.podman.podman_image:
-        name: "{{ item.var }}"
-        push: true
-        push_args:
-          dest: "{{ _external_registry }}/{{ _aap_namespace }}/{{ item.registry_name }}:override"
-        username: unused
-        password: "{{ oc_token.stdout }}"
-        validate_certs: false
+      # Use ansible.builtin.command (podman push) instead of containers.podman.podman_image
+      # with push: true. The Podman collection's push mode uses blob-mount optimization,
+      # which cross-mounts layers from other repositories on the same registry. This causes
+      # pushes to the internal OpenShift registry to fail silently or with opaque errors
+      # when the source layers don't exist in that registry. Calling podman push directly
+      # with explicit source and destination bypasses this optimization and performs a
+      # straightforward layer-by-layer push that works reliably.
+      # See https://github.com/shanemcd/crc-aap/pull/1
+      ansible.builtin.command:
+        cmd: >-
+          podman push
+          --tls-verify=false
+          --creds=unused:{{ oc_token.stdout }}
+          {{ item.var }}
+          {{ _external_registry }}/{{ _aap_namespace }}/{{ item.registry_name }}:override
+      changed_when: true
 
     - name: Set internal gateway image references
       ansible.builtin.set_fact:
